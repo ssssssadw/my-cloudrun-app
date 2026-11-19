@@ -102,7 +102,18 @@ jobs:
           fi
           echo "Health check PASSED"
 
-      # ── 9. Job Summary 출력 ────────────────────────────────────────────
+      # ── 9. GAS Script Properties URL 자동 동기화 ────────────────────────
+      - name: Register URL to GAS Properties
+        if: success()
+        run: |
+          SERVICE_URL="${{ steps.deploy.outputs.url }}"
+          echo "Syncing Cloud Run URL to GAS: $SERVICE_URL"
+          curl -X POST -L \
+            -H "Content-Type: application/json" \
+            -d "{\"serviceName\": \"${{ env.SERVICE_NAME }}\", \"serviceUrl\": \"$SERVICE_URL\"}" \
+            "${{ secrets.GAS_WEBHOOK_URL }}" || echo "GAS sync webhook call completed"
+
+      # ── 10. Job Summary 출력 ───────────────────────────────────────────
       - name: Write job summary
         if: always()
         run: |
