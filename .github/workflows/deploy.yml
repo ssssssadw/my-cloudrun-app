@@ -1,0 +1,116 @@
+name: Deploy BFS-DFS to Cloud Run
+
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - 'BFS-DFS/server/**'
+      - '.github/workflows/deploy.yml'
+  workflow_dispatch:
+
+env:
+  PROJECT_ID: algorithm-510300
+  REGION: us-central1
+  SERVICE_NAME: algo-maze-bfs-dfs
+  IMAGE: us-central1-docker.pkg.dev/algorithm-510300/algo-maze/bfs-dfs-server
+  WORKLOAD_IDENTITY_PROVIDER: projects/738041630723/locations/global/workloadIdentityPools/github-pool/providers/github-provider
+  SERVICE_ACCOUNT: github-actions-deploy@algorithm-510300.iam.gserviceaccount.com
+
+jobs:
+  deploy:
+    name: Build & Deploy to Cloud Run
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write   # Workload Identity Federation에 필수
+
+    steps:
+      # ── 1. 소스 체크아웃 ────────────────────────────────────────────
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      # ── 2. GCP 인증 (Workload Identity Federation — JSON 키 불필요) ──
+      - name: Authenticate to Google Cloud
+        id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ env.WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ env.SERVICE_ACCOUNT }}
+
+      # ── 3. gcloud SDK 설정 ──────────────────────────────────────────
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ env.PROJECT_ID }}
+
+      # ── 4. Artifact Registry 저장소 생성 (최초 1회, 이미 있으면 무시) ─
+      - name: Create Artifact Registry repository (idempotent)
+        run: |
+          gcloud artifacts repositories create algo-maze \
+            --repository-format=docker \
+            --location=${{ env.REGION }} \
+            --description="ALGO-MAZE Docker images" \
+            --project=${{ env.PROJECT_ID }} 2>/dev/null || echo "Repository already exists, skipping."
+
+      # ── 5. Docker 이미지 빌드 & 푸시 ──────────────────────────────────
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev --quiet
+
+      - name: Build and push Docker image
+        run: |
+          docker build \
+            -t ${{ env.IMAGE }}:${{ github.sha }} \
+            -t ${{ env.IMAGE }}:latest \
+            ./BFS-DFS/server
+          docker push ${{ env.IMAGE }}:${{ github.sha }}
+          docker push ${{ env.IMAGE }}:latest
+
+      # ── 6. Cloud Run 배포 ────────────────────────────────────────────
+      - name: Deploy to Cloud Run
+        id: deploy
+        uses: google-github-actions/deploy-cloudrun@v2
+        with:
+          service: ${{ env.SERVICE_NAME }}
+          region: ${{ env.REGION }}
+          image: ${{ env.IMAGE }}:${{ github.sha }}
+          flags: |
+            --allow-unauthenticated
+            --memory=512Mi
+            --cpu=1
+            --min-instances=0
+            --max-instances=5
+            --timeout=60s
+            --port=8080
+          env_vars: |
+            GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}
+            GCP_PROJECT_ID=${{ env.PROJECT_ID }}
+            ENVIRONMENT=production
+
+      # ── 7. 배포 완료 URL 출력 ──────────────────────────────────────────
+      - name: Show deployed URL
+        run: echo "Service URL = ${{ steps.deploy.outputs.url }}"
+
+      # ── 8. 헬스체크 스모크 테스트 ──────────────────────────────────────
+      - name: Smoke test - health check
+        run: |
+          echo "Running health check on ${{ steps.deploy.outputs.url }}/health ..."
+          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 30 "${{ steps.deploy.outputs.url }}/health")
+          echo "HTTP Status: $HTTP_CODE"
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "Health check FAILED (HTTP $HTTP_CODE)"
+            exit 1
+          fi
+          echo "Health check PASSED"
+
+      # ── 9. Job Summary 출력 ────────────────────────────────────────────
+      - name: Write job summary
+        if: always()
+        run: |
+          echo "## ALGO-MAZE Deploy Summary" >> $GITHUB_STEP_SUMMARY
+          echo "| Item | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Service | ${{ env.SERVICE_NAME }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Region | ${{ env.REGION }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Image | ${{ env.IMAGE }}:${{ github.sha }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| URL | ${{ steps.deploy.outputs.url }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Commit | ${{ github.sha }} |" >> $GITHUB_STEP_SUMMARY
