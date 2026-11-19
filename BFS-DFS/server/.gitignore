@@ -1,0 +1,38 @@
+# Environment / Secret keys
+.env
+.env.*
+*.secret
+
+# GCP credentials
+gcp-oauth.keys.json
+*-service-account*.json
+*-credentials*.json
+
+# clasp auth (local only)
+.clasprc.json
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+dist/
+build/
+
+# Virtual envs
+venv/
+.venv/
+env/
+
+# Node
+node_modules/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
