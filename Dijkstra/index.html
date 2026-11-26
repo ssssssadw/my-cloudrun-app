@@ -1,0 +1,1281 @@
+<!DOCTYPE html>
+<html class="dark" lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DijkstraNav | 다익스트라 네비게이션 알고리즘 시각화 워크벤치</title>
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            'background': '#0b1326',
+            'surface': '#0b1326',
+            'surface-container-lowest': '#060e20',
+            'surface-container-low': '#131b2e',
+            'surface-container': '#171f33',
+            'surface-container-high': '#222a3d',
+            'surface-container-highest': '#2d3449',
+            'surface-variant': '#2d3449',
+            'on-surface': '#dae2fd',
+            'on-surface-variant': '#bfc7d2',
+            'outline': '#89929b',
+            'outline-variant': '#3f4850',
+            'primary': '#93ccff',
+            'primary-container': '#3198dc',
+            'on-primary': '#003351',
+            'on-primary-container': '#002c47',
+            'secondary': '#4edea3',
+            'secondary-container': '#00a572',
+            'on-secondary': '#003824',
+            'on-secondary-container': '#00311f',
+            'tertiary': '#c0c1ff',
+            'tertiary-container': '#8083ff',
+            'on-tertiary': '#1000a9',
+            'error': '#ffb4ab',
+            'error-container': '#93000a',
+            'on-error': '#690005',
+            'on-error-container': '#ffdad6'
+          },
+          fontFamily: {
+            sans: ['Inter', 'system-ui', 'sans-serif'],
+            mono: ['JetBrains Mono', 'ui-monospace', 'monospace']
+          }
+        }
+      }
+    };
+  </script>
+  <style>
+    html, body { margin: 0; padding: 0; background-color: #0b1326; color: #dae2fd; font-family: 'Inter', sans-serif; }
+    .tnum { font-variant-numeric: tabular-nums; }
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #060e20; }
+    ::-webkit-scrollbar-thumb { background: #2d3449; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: #3f4850; }
+    @keyframes dashFlow {
+      from { stroke-dashoffset: 56; }
+      to { stroke-dashoffset: 0; }
+    }
+    .animate-dash-flow {
+      animation: dashFlow 1.4s linear infinite;
+    }
+    .panel-border { border: 1px solid #222a3d; }
+  </style>
+</head>
+<body class="bg-background text-on-surface antialiased min-h-screen overflow-x-hidden">
+
+  <!-- Left Fixed Sidebar -->
+  <aside class="fixed left-0 top-0 h-full w-64 bg-surface-container-low z-50 flex flex-col justify-between border-r border-outline-variant/40">
+    <div class="flex flex-col overflow-y-auto">
+      <!-- Brand Header -->
+      <div class="h-16 px-4 flex items-center gap-2.5 bg-surface-container-lowest border-b border-outline-variant/30 shrink-0">
+        <span class="material-symbols-outlined text-primary text-[24px]">hub</span>
+        <div class="flex flex-col">
+          <span class="text-[16px] font-semibold text-on-surface tracking-tight leading-none">DijkstraNav</span>
+          <span class="font-mono text-[11px] text-primary tracking-wide uppercase mt-1">Sim Engine v2.4</span>
+        </div>
+      </div>
+
+      <!-- Workspace Views -->
+      <div class="px-3 pt-3 pb-1">
+        <div class="px-2 py-1 text-[10px] font-semibold text-outline uppercase tracking-wider">Workspace Views</div>
+      </div>
+      <nav id="sidebar-nav" class="flex flex-col gap-1 px-2">
+        <button data-view="canvas" class="nav-btn flex items-center gap-3 px-3 py-2 rounded text-left text-[12px] font-medium bg-surface-container-high text-primary transition-colors">
+          <span class="material-symbols-outlined text-[18px]">grid_view</span>
+          <span>Canvas Workbench</span>
+        </button>
+        <button data-view="heap" class="nav-btn flex items-center gap-3 px-3 py-2 rounded text-left text-[12px] font-medium text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors">
+          <span class="material-symbols-outlined text-[18px]">format_list_numbered</span>
+          <span>Min-Heap Queue</span>
+        </button>
+        <button data-view="histogram" class="nav-btn flex items-center gap-3 px-3 py-2 rounded text-left text-[12px] font-medium text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors">
+          <span class="material-symbols-outlined text-[18px]">bar_chart</span>
+          <span>Step Histogram</span>
+        </button>
+        <button data-view="tracer" class="nav-btn flex items-center gap-3 px-3 py-2 rounded text-left text-[12px] font-medium text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors">
+          <span class="material-symbols-outlined text-[18px]">terminal</span>
+          <span>Execution Tracer</span>
+        </button>
+        <button data-view="matrix" class="nav-btn flex items-center gap-3 px-3 py-2 rounded text-left text-[12px] font-medium text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors">
+          <span class="material-symbols-outlined text-[18px]">schema</span>
+          <span>Adjacency Matrix</span>
+        </button>
+      </nav>
+
+      <!-- Route & Traffic Configuration -->
+      <div class="px-3 pt-4 pb-1 mt-2 border-t border-outline-variant/30">
+        <div class="px-2 py-1 text-[10px] font-semibold text-outline uppercase tracking-wider">Route Parameters</div>
+      </div>
+      <div class="px-3 py-2 flex flex-col gap-2.5 text-[12px]">
+        <div>
+          <label class="block text-[10px] text-on-surface-variant uppercase mb-1">도로망 프리셋</label>
+          <select id="preset-select" class="w-full bg-surface-container-lowest border border-outline-variant/60 rounded px-2.5 py-1.5 text-[12px] text-on-surface focus:outline-none focus:border-primary">
+            <option value="centum_ai_hub">센텀-AI허브 도로망 (8정점)</option>
+            <option value="urban_rush_hour">출퇴근 혼잡 우회망 (10정점)</option>
+            <option value="custom_random">랜덤 도로망 생성 (8정점)</option>
+          </select>
+        </div>
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="block text-[10px] text-on-surface-variant uppercase mb-1">출발지 (Start)</label>
+            <select id="start-select" class="w-full bg-surface-container-lowest border border-outline-variant/60 rounded px-2 py-1 text-[12px] font-mono text-secondary focus:outline-none focus:border-primary"></select>
+          </div>
+          <div>
+            <label class="block text-[10px] text-on-surface-variant uppercase mb-1">목적지 (Goal)</label>
+            <select id="end-select" class="w-full bg-surface-container-lowest border border-outline-variant/60 rounded px-2 py-1 text-[12px] font-mono text-tertiary focus:outline-none focus:border-primary"></select>
+          </div>
+        </div>
+        <div>
+          <div class="flex items-center justify-between mb-1">
+            <label class="text-[10px] text-on-surface-variant uppercase">교통 혼잡 배율</label>
+            <span id="traffic-label" class="font-mono text-[11px] text-primary tnum">1.0x (정상)</span>
+          </div>
+          <input id="traffic-slider" type="range" min="0.5" max="2.5" step="0.25" value="1.0" class="w-full accent-primary h-1 bg-surface-container-highest rounded cursor-pointer" />
+        </div>
+        <button id="btn-recompute" type="button" class="w-full mt-1 py-1.5 px-3 rounded bg-primary-container/80 hover:bg-primary text-on-primary-container hover:text-on-primary font-semibold text-[12px] flex items-center justify-center gap-1.5 transition-colors">
+          <span class="material-symbols-outlined text-[16px]">alt_route</span>
+          <span>경로 재탐색 실행</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Bottom Topology Card -->
+    <div class="p-3 bg-surface-container-lowest border-t border-outline-variant/30 flex flex-col gap-2 shrink-0">
+      <div class="flex items-center justify-between px-1">
+        <span class="text-[10px] font-semibold text-outline uppercase">Graph Topology</span>
+        <span class="font-mono text-[10px] text-secondary bg-surface-container px-1.5 py-0.5 rounded">O((V+E) log V)</span>
+      </div>
+      <div class="bg-surface-container p-2 rounded flex flex-col gap-1 font-mono text-[11px] tnum">
+        <div class="flex justify-between">
+          <span class="text-on-surface-variant">Active Nodes (V):</span>
+          <span id="topo-v" class="text-on-surface font-semibold">8</span>
+        </div>
+        <div class="flex justify-between">
+          <span class="text-on-surface-variant">Directed Edges (E):</span>
+          <span id="topo-e" class="text-on-surface font-semibold">13</span>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Main Content Shell -->
+  <div class="pl-64 flex flex-col min-h-screen">
+    <!-- Top Fixed Header -->
+    <header class="fixed top-0 left-64 right-0 h-16 bg-surface-container-low/95 backdrop-blur-md z-40 px-4 flex items-center justify-between border-b border-outline-variant/40">
+      <div class="flex items-center gap-4">
+        <div class="flex items-center gap-1.5 text-[12px] text-on-surface-variant">
+          <span class="material-symbols-outlined text-[18px] text-outline">route</span>
+          <span>Routing Explorer</span>
+          <span class="text-outline">/</span>
+          <span class="text-on-surface font-semibold">Dijkstra SSSP</span>
+        </div>
+        <div id="server-badge" class="flex items-center gap-1.5 px-2.5 py-1 bg-surface-container-lowest rounded-full border border-outline-variant/40">
+          <span class="relative flex h-2 w-2">
+            <span id="server-ping" class="animate-ping absolute inline-flex h-full w-full rounded-full bg-secondary opacity-75"></span>
+            <span id="server-dot" class="relative inline-flex rounded-full h-2 w-2 bg-secondary"></span>
+          </span>
+          <span id="server-status-text" class="font-mono text-[11px] text-secondary font-medium tracking-tight">엔진 초기화 중...</span>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-3">
+        <!-- Playback Controls -->
+        <div class="flex items-center bg-surface-container-lowest rounded p-1 gap-1 border border-outline-variant/40">
+          <button id="btn-play" type="button" class="flex items-center gap-1 px-2.5 py-1 rounded bg-secondary-container hover:bg-secondary text-on-secondary-container hover:text-on-secondary text-[12px] font-semibold transition-colors">
+            <span class="material-symbols-outlined text-[16px]">play_arrow</span>
+            <span>시작/재생</span>
+          </button>
+          <button id="btn-pause" type="button" class="flex items-center gap-1 px-2.5 py-1 rounded bg-error-container hover:bg-error text-on-error-container hover:text-on-error text-[12px] font-medium transition-colors">
+            <span class="material-symbols-outlined text-[16px]">pause</span>
+            <span>일시정지</span>
+          </button>
+          <button id="btn-prev" type="button" title="이전 스텝" class="p-1 rounded hover:bg-surface-container-high text-on-surface-variant hover:text-on-surface transition-colors">
+            <span class="material-symbols-outlined text-[18px]">skip_previous</span>
+          </button>
+          <button id="btn-next" type="button" title="다음 스텝" class="p-1 rounded hover:bg-surface-container-high text-on-surface-variant hover:text-on-surface transition-colors">
+            <span class="material-symbols-outlined text-[18px]">skip_next</span>
+          </button>
+          <button id="btn-reset" type="button" class="flex items-center gap-1 px-2 py-1 rounded bg-surface-container hover:bg-surface-container-high text-on-surface-variant hover:text-on-surface text-[12px] font-medium transition-colors">
+            <span class="material-symbols-outlined text-[16px]">restart_alt</span>
+            <span>초기화</span>
+          </button>
+        </div>
+
+        <!-- Speed Control -->
+        <div class="hidden xl:flex items-center gap-2 px-2.5 py-1 bg-surface-container rounded border border-outline-variant/30">
+          <span class="text-[10px] text-on-surface-variant uppercase font-semibold">Speed</span>
+          <input id="speed-slider" type="range" min="150" max="1500" step="50" value="650" class="w-20 accent-primary h-1 bg-surface-container-highest rounded cursor-pointer" />
+          <span id="speed-label" class="font-mono text-[11px] text-primary tnum w-12 text-right">650ms</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main Workbench Body -->
+    <main class="w-full pt-16 flex-1 bg-background">
+      <div class="flex flex-col w-full p-4 gap-4 max-w-[1600px] mx-auto">
+
+        <!-- 1. Top Real-Time Status Banner -->
+        <div class="flex flex-wrap items-center justify-between gap-2 px-3.5 py-2 bg-surface-container-low rounded-lg panel-border">
+          <div class="flex items-center gap-2.5 min-w-0">
+            <span class="inline-flex w-2 h-2 rounded-full bg-secondary shrink-0"></span>
+            <span id="banner-status" class="font-mono text-[11px] text-secondary uppercase tracking-wider font-semibold shrink-0">REALTIME ENGINE ACTIVE</span>
+            <span class="text-outline-variant font-mono text-[11px]">|</span>
+            <span id="banner-message" class="text-[12px] text-on-surface-variant truncate">다익스트라 단일 출발지 최단 경로(SSSP) 탐색 준비 완료</span>
+          </div>
+          <div class="flex items-center gap-4 shrink-0 font-mono text-[11px] tnum">
+            <div class="flex items-center gap-1 text-on-surface-variant">
+              <span class="material-symbols-outlined text-[15px] text-tertiary">memory</span>
+              <span>힙 트리 깊이: <strong id="banner-heap-depth" class="text-on-surface">1</strong> 레벨</span>
+            </div>
+            <div class="flex items-center gap-1 text-primary">
+              <span class="material-symbols-outlined text-[15px]">timeline</span>
+              <span id="banner-step-badge">STEP 01 / 01</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 2. Primary Upper Panel: Real-World GIS Road Navigation Canvas -->
+        <section id="section-canvas" class="relative w-full rounded-xl bg-surface-container-lowest overflow-hidden panel-border shadow-xl" style="height: 460px;">
+          <!-- Ambient Grid Pattern -->
+          <div class="absolute inset-0 pointer-events-none opacity-25">
+            <svg class="w-full h-full" xmlns="http://www.w3.org/2000/svg">
+              <defs>
+                <pattern id="grid-pattern" width="40" height="40" patternUnits="userSpaceOnUse">
+                  <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#222a3d" stroke-width="0.8" />
+                  <circle cx="0" cy="0" r="1" fill="#3f4850" />
+                </pattern>
+              </defs>
+              <rect width="100%" height="100%" fill="url(#grid-pattern)" />
+            </svg>
+          </div>
+
+          <!-- Dynamic GIS Road Network SVG -->
+          <svg id="gis-svg" class="absolute inset-0 w-full h-full" viewBox="0 0 1140 460" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg"></svg>
+
+          <!-- Top-Left Navigation HUD Glass Overlay -->
+          <div class="absolute top-3 left-3 bg-surface-container-low/90 backdrop-blur-md p-3 rounded-lg panel-border shadow-xl w-80">
+            <div class="flex items-start gap-2.5">
+              <div class="w-9 h-9 rounded bg-primary-container flex items-center justify-center text-on-primary-container shrink-0">
+                <span id="hud-icon" class="material-symbols-outlined text-[22px]">straight</span>
+              </div>
+              <div class="flex flex-col min-w-0 flex-1">
+                <div class="flex items-center justify-between gap-2">
+                  <span class="text-[10px] text-secondary uppercase font-semibold tracking-wide">최적 다익스트라 경로</span>
+                  <span id="hud-traffic-badge" class="font-mono text-[10px] text-primary px-1.5 py-0.5 bg-surface-container-highest rounded">정상 소통</span>
+                </div>
+                <span id="hud-title" class="text-[14px] font-semibold text-on-surface truncate mt-0.5">경로 계산 중...</span>
+                <span id="hud-subtitle" class="text-[11px] text-on-surface-variant truncate">출발지 → 목적지 최단 경로 탐색</span>
+              </div>
+            </div>
+            <div class="mt-2.5 bg-surface-container-lowest/85 p-2 rounded flex items-center justify-between tnum">
+              <div>
+                <div class="text-[10px] text-outline">최단 경로 거리</div>
+                <div class="text-[16px] font-semibold text-on-surface"><span id="hud-distance">0.0</span> <span class="text-[11px] text-on-surface-variant font-normal">km</span></div>
+              </div>
+              <div class="text-right">
+                <div class="text-[10px] text-outline">예상 도달 시간</div>
+                <div id="hud-eta" class="text-[16px] font-semibold text-secondary">0분</div>
+              </div>
+              <div class="text-right">
+                <div class="text-[10px] text-outline">누적 비용</div>
+                <div id="hud-cost" class="font-mono text-[13px] text-primary font-bold">D[v]=0.0</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Top-Right GIS Layer Toggle Controls -->
+          <div class="absolute top-3 right-3 flex flex-col gap-1 bg-surface-container-low/90 backdrop-blur-md p-1.5 rounded-lg panel-border shadow-lg">
+            <label class="flex items-center gap-2 px-2 py-1 rounded hover:bg-surface-container-high cursor-pointer">
+              <input id="toggle-weights" type="checkbox" checked class="accent-primary rounded-sm" />
+              <span class="text-[11px] font-medium text-on-surface">간선 가중치 (Edge Cost w)</span>
+            </label>
+            <label class="flex items-center gap-2 px-2 py-1 rounded hover:bg-surface-container-high cursor-pointer">
+              <input id="toggle-congestion" type="checkbox" checked class="accent-error rounded-sm" />
+              <span class="text-[11px] font-medium text-on-surface">교통 체증 혼잡도 히트맵</span>
+            </label>
+            <label class="flex items-center gap-2 px-2 py-1 rounded hover:bg-surface-container-high cursor-pointer">
+              <input id="toggle-wavefront" type="checkbox" checked class="accent-secondary rounded-sm" />
+              <span class="text-[11px] font-medium text-on-surface">탐색 파면 반경 (Wavefront)</span>
+            </label>
+          </div>
+
+          <!-- Bottom-Left GIS Legend -->
+          <div class="absolute bottom-3 left-3 flex flex-wrap items-center gap-3.5 px-3 py-1.5 bg-surface-container-low/90 backdrop-blur-md rounded-lg panel-border text-[11px] text-on-surface-variant">
+            <div class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-secondary"></span><span>출발 / 확정 정점 (Settled)</span></div>
+            <div class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-primary"></span><span>현재 이완 중 (Relaxing)</span></div>
+            <div class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-tertiary"></span><span>우선순위 큐 대기 (Min-Heap)</span></div>
+            <div class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-surface-variant border border-outline"></span><span>미방문 정점 (d = ∞)</span></div>
+          </div>
+
+          <!-- Bottom-Right Step Scrubber -->
+          <div class="absolute bottom-3 right-3 flex items-center gap-2 px-3 py-1.5 bg-surface-container-low/90 backdrop-blur-md rounded-lg panel-border">
+            <span class="font-mono text-[10px] text-outline uppercase">Timeline</span>
+            <input id="step-scrubber" type="range" min="0" max="0" value="0" class="w-36 accent-primary h-1 bg-surface-container-highest rounded cursor-pointer" />
+            <span id="scrubber-pct" class="font-mono text-[11px] text-primary tnum w-10 text-right">0%</span>
+          </div>
+        </section>
+
+        <!-- 3. Middle Split-Screen Layout -->
+        <div class="grid grid-cols-1 xl:grid-cols-12 gap-4 w-full">
+
+          <!-- Left Column (col 1~5): Abstract Graph + Min-Heap Queue -->
+          <div class="xl:col-span-5 flex flex-col bg-surface-container-low rounded-xl p-3.5 panel-border gap-3">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-2">
+                <span class="material-symbols-outlined text-primary text-[20px]">schema</span>
+                <span class="text-[14px] font-semibold text-on-surface">추상 수학적 그래프 모델 (G = (V, E))</span>
+              </div>
+              <span class="font-mono text-[10px] text-tertiary bg-surface-container px-2 py-0.5 rounded">유향 가중치 그래프</span>
+            </div>
+
+            <!-- Abstract Topological Graph SVG -->
+            <div class="relative w-full h-60 bg-surface-container-lowest rounded-lg overflow-hidden border border-outline-variant/30">
+              <svg id="abstract-svg" class="w-full h-full" viewBox="0 0 460 250" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg"></svg>
+              <div class="absolute bottom-2 right-2 px-2 py-0.5 bg-surface-container-high/90 rounded text-outline font-mono text-[10px] pointer-events-none">
+                Relaxation: D[v] = min(D[v], D[u] + w(u,v))
+              </div>
+            </div>
+
+            <!-- Min-Priority Queue Live Widget -->
+            <div id="section-heap" class="flex flex-col bg-surface-container p-3 rounded-lg gap-2 border border-outline-variant/30">
+              <div class="flex items-center justify-between">
+                <div class="flex items-center gap-1.5">
+                  <span class="material-symbols-outlined text-[16px] text-tertiary">layers</span>
+                  <span class="text-[11px] font-semibold text-on-surface uppercase tracking-wide">우선순위 큐 상태 (Min-Heap / Binary Tree)</span>
+                </div>
+                <span id="heap-len-badge" class="font-mono text-[11px] text-outline tnum">len: 0 items</span>
+              </div>
+              <div id="heap-grid" class="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-0.5"></div>
+            </div>
+
+            <!-- Compact Step Histogram Preview -->
+            <div id="section-histogram" class="flex flex-col bg-surface-container p-3 rounded-lg gap-2 border border-outline-variant/30">
+              <div class="flex items-center justify-between">
+                <div class="flex items-center gap-1.5">
+                  <span class="material-symbols-outlined text-[16px] text-primary">bar_chart</span>
+                  <span class="text-[11px] font-semibold text-on-surface uppercase tracking-wide">단계별 최단 거리 D[v] 히스토그램</span>
+                </div>
+                <span id="hist-state-summary" class="font-mono text-[10px] text-secondary tnum">Settled 0 / Queued 0</span>
+              </div>
+              <div id="distance-histogram" class="flex items-end gap-1.5 h-28 pt-2 px-1 bg-surface-container-lowest rounded border border-outline-variant/20"></div>
+              <div id="ops-histogram" class="grid grid-cols-4 gap-1.5 pt-1 font-mono text-[10px] tnum"></div>
+            </div>
+          </div>
+
+          <!-- Right Column (col 6~12): Tabs (Table / Logs / Matrix) + Python Execution Tracer -->
+          <div class="xl:col-span-7 flex flex-col bg-surface-container-low rounded-xl p-3.5 panel-border gap-3">
+            <!-- Tab Header -->
+            <div class="flex flex-wrap items-center justify-between gap-2">
+              <div class="flex items-center gap-1">
+                <button data-tab="table" class="tab-btn px-3 py-1.5 rounded bg-surface-container-high text-primary text-[12px] font-medium flex items-center gap-1.5">
+                  <span class="material-symbols-outlined text-[16px]">table_chart</span>
+                  <span>다익스트라 상태표</span>
+                </button>
+                <button data-tab="logs" class="tab-btn px-3 py-1.5 rounded hover:bg-surface-container-high text-on-surface-variant text-[12px] font-medium flex items-center gap-1.5 transition-colors">
+                  <span class="material-symbols-outlined text-[16px]">history</span>
+                  <span>완화 로그</span>
+                </button>
+                <button data-tab="matrix" class="tab-btn px-3 py-1.5 rounded hover:bg-surface-container-high text-on-surface-variant text-[12px] font-medium flex items-center gap-1.5 transition-colors">
+                  <span class="material-symbols-outlined text-[16px]">grid_on</span>
+                  <span>인접 행렬</span>
+                </button>
+              </div>
+              <span id="panel-step-counter" class="font-mono text-[11px] text-outline tnum">STEP #01 / #01</span>
+            </div>
+
+            <!-- Tab 1: Real-Time Dijkstra State Table -->
+            <div id="tab-table" class="tab-panel w-full overflow-x-auto rounded-lg bg-surface-container-lowest border border-outline-variant/30 max-h-[300px] overflow-y-auto">
+              <table class="w-full text-left text-[12px] border-collapse">
+                <thead class="sticky top-0 bg-surface-container text-on-surface-variant text-[10px] uppercase tracking-wider">
+                  <tr>
+                    <th class="py-2 px-3">정점 (Node)</th>
+                    <th class="py-2 px-3">최단 거리 D[v]</th>
+                    <th class="py-2 px-3">이전 정점 Prev[v]</th>
+                    <th class="py-2 px-3">확정 상태</th>
+                    <th class="py-2 px-3">현재 파이프라인 액션</th>
+                  </tr>
+                </thead>
+                <tbody id="state-table-body" class="divide-y divide-surface-container font-mono text-[11px] tnum"></tbody>
+              </table>
+            </div>
+
+            <!-- Tab 2: Relaxation Logs -->
+            <div id="tab-logs" class="tab-panel hidden w-full rounded-lg bg-surface-container-lowest border border-outline-variant/30 p-3 max-h-[300px] overflow-y-auto font-mono text-[11px] space-y-1.5"></div>
+
+            <!-- Tab 3: Adjacency Matrix -->
+            <div id="tab-matrix" class="tab-panel hidden w-full overflow-x-auto rounded-lg bg-surface-container-lowest border border-outline-variant/30 p-2 max-h-[300px] overflow-y-auto">
+              <table id="adj-matrix-table" class="w-full text-center font-mono text-[11px] border-collapse tnum"></table>
+            </div>
+
+            <!-- Python Execution Tracer -->
+            <div id="section-tracer" class="flex flex-col bg-surface-container-lowest rounded-lg p-3 gap-1.5 border border-outline-variant/30">
+              <div class="flex items-center justify-between text-[10px] font-semibold text-outline uppercase pb-1 border-b border-surface-container">
+                <span>Python Execution Tracer (@engine/dijkstra.py)</span>
+                <span id="tracer-active-line" class="font-mono text-[11px] text-primary tnum">Active Line: 04</span>
+              </div>
+              <div id="pseudocode-box" class="font-mono text-[11px] space-y-0.5 leading-relaxed"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 4. Bottom Metadata Summary Cards (4종) -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 w-full tnum">
+          <!-- Card 1: Total Operations & Relaxations -->
+          <div class="flex flex-col bg-surface-container-low rounded-xl p-3.5 panel-border justify-between gap-1.5">
+            <div class="flex items-center justify-between">
+              <span class="text-[10px] font-semibold text-outline uppercase tracking-wider">탐색 연산 / 완화 횟수</span>
+              <span class="material-symbols-outlined text-[20px] text-primary">function</span>
+            </div>
+            <div class="flex items-baseline gap-1.5">
+              <span id="card-ops" class="text-[28px] font-bold text-on-surface font-mono">0</span>
+              <span class="text-[13px] text-on-surface-variant">회</span>
+            </div>
+            <div class="flex items-center justify-between pt-1">
+              <span id="card-savings" class="font-mono text-[10px] text-secondary bg-surface-container px-1.5 py-0.5 rounded">0% 연산 절감</span>
+              <span class="text-[10px] text-outline">최악 O((V+E)logV) 대비</span>
+            </div>
+          </div>
+
+          <!-- Card 2: Execution Time -->
+          <div class="flex flex-col bg-surface-container-low rounded-xl p-3.5 panel-border justify-between gap-1.5">
+            <div class="flex items-center justify-between">
+              <span class="text-[10px] font-semibold text-outline uppercase tracking-wider">알고리즘 소요 시간</span>
+              <span class="material-symbols-outlined text-[20px] text-secondary">timer</span>
+            </div>
+            <div class="flex items-baseline gap-1">
+              <span id="card-elapsed" class="text-[28px] font-bold text-secondary font-mono">0.00</span>
+              <span class="text-[14px] text-secondary font-semibold">ms</span>
+            </div>
+            <div class="flex items-center justify-between pt-1">
+              <span id="card-step-time" class="font-mono text-[10px] text-on-surface-variant">누적 연산 시간</span>
+              <span class="flex items-center gap-1 text-[10px] text-secondary">
+                <span class="w-1.5 h-1.5 rounded-full bg-secondary"></span>
+                <span>Min-Heap O(log V)</span>
+              </span>
+            </div>
+          </div>
+
+          <!-- Card 3: Settled Node Coverage -->
+          <div class="flex flex-col bg-surface-container-low rounded-xl p-3.5 panel-border justify-between gap-1.5">
+            <div class="flex items-center justify-between">
+              <span class="text-[10px] font-semibold text-outline uppercase tracking-wider">방문 정점 확정 비율</span>
+              <span class="material-symbols-outlined text-[20px] text-tertiary">check_circle</span>
+            </div>
+            <div class="flex items-baseline gap-1.5">
+              <span id="card-settled-ratio" class="text-[28px] font-bold text-on-surface font-mono">0 / 0</span>
+              <span id="card-settled-pct" class="text-[14px] text-tertiary font-mono font-semibold">(0.0%)</span>
+            </div>
+            <div class="w-full bg-surface-container-highest h-1.5 rounded-full overflow-hidden mt-1">
+              <div id="card-settled-bar" class="bg-tertiary h-full rounded-full transition-all duration-300" style="width: 0%;"></div>
+            </div>
+          </div>
+
+          <!-- Card 4: Optimal Path Cost -->
+          <div class="flex flex-col bg-surface-container-low rounded-xl p-3.5 panel-border justify-between gap-1.5">
+            <div class="flex items-center justify-between">
+              <span class="text-[10px] font-semibold text-outline uppercase tracking-wider">최단 경로 총 가중치 비용</span>
+              <span class="material-symbols-outlined text-[20px] text-primary">alt_route</span>
+            </div>
+            <div class="flex items-baseline gap-1.5">
+              <span id="card-total-cost" class="text-[28px] font-bold text-primary font-mono">-</span>
+              <span class="text-[12px] text-on-surface-variant">비용 단위</span>
+            </div>
+            <div class="flex items-center justify-between pt-1 font-mono text-[10px]">
+              <span class="text-on-surface-variant">실제 거리: <strong id="card-total-km" class="text-on-surface">0.0 km</strong></span>
+              <span class="text-secondary font-medium">최적성 보장 (Optimal)</span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </main>
+
+    <!-- Bottom Status Footer -->
+    <footer class="w-full h-8 bg-surface-container-lowest flex items-center justify-between px-4 text-on-surface-variant font-mono text-[11px] border-t border-outline-variant/30">
+      <div class="flex items-center gap-3">
+        <span>Engine: <span class="text-primary font-medium">Dijkstra SSSP PriorityQueue</span></span>
+        <span class="text-outline">|</span>
+        <span>Source: <span id="footer-source" class="text-secondary font-medium">Initializing...</span></span>
+        <span class="text-outline hidden sm:inline">|</span>
+        <span class="hidden sm:inline">Memory Est: <span id="footer-mem" class="text-on-surface">0 KB</span></span>
+      </div>
+      <div class="flex items-center gap-3">
+        <span class="flex items-center gap-1"><span class="material-symbols-outlined text-[14px] text-secondary">sync_alt</span>REST API v2.4</span>
+      </div>
+    </footer>
+  </div>
+
+  <script>
+    // =========================================================================
+    // Python Pseudocode Lines for Execution Tracer
+    // =========================================================================
+    const PSEUDOCODE = [
+      { no: 1, html: '<span class="text-tertiary">import</span> heapq' },
+      { no: 2, html: '<span class="text-tertiary">def</span> <span class="text-primary">dijkstra</span>(graph, start):' },
+      { no: 3, html: '&nbsp;&nbsp;&nbsp;&nbsp;dist = {v: float(<span class="text-secondary">\'inf\'</span>) <span class="text-tertiary">for</span> v <span class="text-tertiary">in</span> graph}; dist[start] = 0' },
+      { no: 4, html: '&nbsp;&nbsp;&nbsp;&nbsp;pq = [(0, start)]' },
+      { no: 5, html: '&nbsp;&nbsp;&nbsp;&nbsp;<span class="text-tertiary">while</span> pq:' },
+      { no: 6, html: '&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;cur_d, u = heapq.heappop(pq)' },
+      { no: 7, html: '&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="text-tertiary">if</span> cur_d &gt; dist[u]: <span class="text-tertiary">continue</span>' },
+      { no: 8, html: '&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="text-tertiary">for</span> v, weight <span class="text-tertiary">in</span> graph[u].items():' },
+      { no: 9, html: '&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="text-primary">if</span> dist[u] + weight &lt; dist[v]:' },
+      { no: 10, html: '&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;dist[v] = dist[u] + weight; prev[v] = u' },
+      { no: 11, html: '&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;heapq.heappush(pq, (dist[v], v))' },
+      { no: 12, html: '&nbsp;&nbsp;&nbsp;&nbsp;<span class="text-tertiary">return</span> dist, prev' }
+    ];
+
+    // =========================================================================
+    // Application State
+    // =========================================================================
+    let simData = null;
+    let currentStepIdx = 0;
+    let playTimer = null;
+    let playSpeedMs = 650;
+
+    // =========================================================================
+    // Browser Standalone Fallback Engine (when opened outside GAS)
+    // =========================================================================
+    const LOCAL_PRESETS = {
+      centum_ai_hub: {
+        default_start: 'V0', default_end: 'V7',
+        nodes: [
+          { id: 'V0', label: '센텀 중앙로터리', short_label: 'Centum', map_x: 120, map_y: 230, graph_x: 50, graph_y: 125 },
+          { id: 'V1', label: '테크노밸리 북로', short_label: '테크노북로', map_x: 260, map_y: 105, graph_x: 140, graph_y: 55 },
+          { id: 'V2', label: '판교 나들목 IC', short_label: '판교 IC남로', map_x: 320, map_y: 365, graph_x: 140, graph_y: 195 },
+          { id: 'V3', label: '바이오캠퍼스 교차로', short_label: '바이오교차', map_x: 340, map_y: 230, graph_x: 180, graph_y: 125 },
+          { id: 'V4', label: '북부 순환 고가', short_label: '북부고가', map_x: 460, map_y: 85, graph_x: 270, graph_y: 55 },
+          { id: 'V5', label: '글로벌 R&D 사거리', short_label: '글로벌 R&D', map_x: 590, map_y: 230, graph_x: 290, graph_y: 125 },
+          { id: 'V6', label: '스마트 물류 터미널', short_label: '스마트물류', map_x: 820, map_y: 180, graph_x: 380, graph_y: 70 },
+          { id: 'V7', label: 'AI R&D Hub 미래관', short_label: 'AI R&D Hub', map_x: 980, map_y: 260, graph_x: 410, graph_y: 175 }
+        ],
+        edges: [
+          { source: 'V0', target: 'V1', weight: 8.4, distance_km: 3.1, congestion: 0.72, road_name: '센텀북대로' },
+          { source: 'V0', target: 'V2', weight: 6.2, distance_km: 2.9, congestion: 0.35, road_name: '남부순환로' },
+          { source: 'V0', target: 'V3', weight: 4.2, distance_km: 2.4, congestion: 0.15, road_name: '중앙대로 직진' },
+          { source: 'V1', target: 'V4', weight: 5.5, distance_km: 2.8, congestion: 0.85, road_name: '북부고가 진입로' },
+          { source: 'V1', target: 'V3', weight: 3.0, distance_km: 1.6, congestion: 0.25, road_name: '테크노 연결로' },
+          { source: 'V2', target: 'V3', weight: 2.4, distance_km: 1.5, congestion: 0.20, road_name: 'IC 연결도로' },
+          { source: 'V2', target: 'V5', weight: 6.8, distance_km: 3.5, congestion: 0.78, road_name: '남측 외곽로' },
+          { source: 'V3', target: 'V5', weight: 3.8, distance_km: 2.8, congestion: 0.18, road_name: '글로벌 R&D 직진로' },
+          { source: 'V4', target: 'V5', weight: 4.6, distance_km: 2.5, congestion: 0.40, road_name: '고가 하행선' },
+          { source: 'V4', target: 'V6', weight: 6.5, distance_km: 3.9, congestion: 0.55, road_name: '동부 간선로' },
+          { source: 'V5', target: 'V6', weight: 4.4, distance_km: 3.8, congestion: 0.22, road_name: '물류터미널 우회로' },
+          { source: 'V5', target: 'V7', weight: 9.2, distance_km: 4.9, congestion: 0.88, road_name: '도심 혼잡 직선로' },
+          { source: 'V6', target: 'V7', weight: 3.1, distance_km: 3.4, congestion: 0.12, road_name: 'AI허브 진입로' }
+        ]
+      }
+    };
+
+    function runClientFallback(opts) {
+      const t0 = performance.now();
+      const net = LOCAL_PRESETS.centum_ai_hub;
+      const nodes = net.nodes;
+      const startId = opts.start || net.default_start;
+      const endId = opts.end || net.default_end;
+      const mult = opts.traffic_multiplier || 1.0;
+      const nodeIds = nodes.map(n => n.id);
+      const nodeMap = Object.fromEntries(nodes.map(n => [n.id, n]));
+      const adj = Object.fromEntries(nodeIds.map(id => [id, []]));
+      const effectiveEdges = net.edges.map(e => {
+        const w = Math.max(0.5, Math.round(e.weight * (1 + (mult - 1) * (0.4 + e.congestion)) * 10) / 10);
+        const obj = { ...e, base_weight: e.weight, weight: w };
+        adj[e.source].push(obj);
+        return obj;
+      });
+      const edgeLookup = Object.fromEntries(effectiveEdges.map(e => [`${e.source}->${e.target}`, e]));
+      const V = nodeIds.length, E = effectiveEdges.length;
+      const theoreticalMax = Math.max(1, Math.round((V + E) * Math.log2(Math.max(2, V))));
+      const dist = Object.fromEntries(nodeIds.map(id => [id, Infinity]));
+      const prev = Object.fromEntries(nodeIds.map(id => [id, null]));
+      dist[startId] = 0;
+      const settled = [], settledSet = new Set();
+      const pq = [{ dist: 0, node: startId }];
+      const pqSort = () => pq.sort((a, b) => a.dist - b.dist);
+      let extractCount = 0, relaxChecks = 0, relaxUpdates = 0, heapPushes = 1, peakHeap = 1;
+      const steps = [], logs = [];
+
+      function pushStep(action, line, msg, curN, tgtN, actE) {
+        peakHeap = Math.max(peakHeap, pq.length);
+        const qSet = new Set(pq.filter(x => !settledSet.has(x.node)).map(x => x.node));
+        const fin = Object.values(dist).filter(v => v !== Infinity);
+        const maxF = Math.max(1, ...fin);
+        const distance_bars = nodeIds.map(nid => {
+          const d = dist[nid], inf = d === Infinity;
+          let st = 'UNVISITED';
+          if (nid === curN && ['EXTRACT_MIN', 'RELAX_SUCCESS', 'RELAX_SKIP'].includes(action)) st = 'EXTRACTING';
+          else if (settledSet.has(nid)) st = 'SETTLED';
+          else if (qSet.has(nid)) st = 'QUEUED';
+          return { node: nid, label: nodeMap[nid].short_label, distance: inf ? null : Math.round(d * 10) / 10, is_inf: inf, ratio: inf ? 0 : Math.min(1, d / maxF), state: st, prev: prev[nid] };
+        });
+        const cumOps = extractCount + relaxChecks + relaxUpdates + heapPushes;
+        steps.push({
+          step_id: steps.length + 1, action, active_line: line, message: msg, current_node: curN, target_node: tgtN, active_edge: actE,
+          distances: Object.fromEntries(nodeIds.map(id => [id, dist[id] === Infinity ? null : Math.round(dist[id] * 10) / 10])),
+          prev: { ...prev }, settled: [...settled], queued: [...qSet],
+          pq: pq.map((x, idx) => ({ index: idx, dist: Math.round(x.dist * 10) / 10, node: x.node, parent_idx: idx === 0 ? null : Math.floor((idx - 1) / 2), is_stale: settledSet.has(x.node) || x.dist > dist[x.node] })),
+          heap_depth: pq.length === 0 ? 0 : Math.floor(Math.log2(pq.length)) + 1,
+          histogram: { distance_bars, state_counts: { settled: settledSet.size, queued: qSet.size, unvisited: Math.max(0, V - settledSet.size - qSet.size) }, ops_bars: { extract_min: extractCount, relax_checks: relaxChecks, relax_updates: relaxUpdates, heap_pushes: heapPushes } },
+          metadata: { elapsed_ms: Math.round((performance.now() - t0 + steps.length * 0.12) * 1000) / 1000, time_complexity: { notation: 'O((V + E) log V)', cumulative_operations: cumOps, theoretical_max: theoreticalMax, savings_pct: Math.round(Math.max(0, (1 - cumOps / (theoreticalMax * 2)) * 100) * 10) / 10 }, space_complexity: { current_heap_size: pq.length, peak_heap_size: peakHeap, est_memory_kb: Math.round((V * 64 + E * 48 + pq.length * 32) / 10.24) / 100 }, settled_pct: Math.round((settledSet.size / V) * 1000) / 10 }
+        });
+      }
+
+      pushStep('INIT', 4, `초기화 완료: D[${startId}] = 0.0 설정 및 Min-Heap 삽입`, startId, null, null);
+      while (pq.length > 0) {
+        pqSort();
+        const { dist: curD, node: u } = pq.shift();
+        extractCount++;
+        if (settledSet.has(u) || curD > dist[u]) {
+          pushStep('SKIP_STALE', 7, `오래된 힙 항목 (${curD.toFixed(1)}, ${u}) 무시`, u, null, null);
+          continue;
+        }
+        settled.push(u); settledSet.add(u);
+        pushStep('EXTRACT_MIN', 6, `Min-Heap 최솟값 추출: ${u} (${nodeMap[u].short_label}) 확정 — D[${u}] = ${curD.toFixed(1)}`, u, null, null);
+        if (u === endId) {
+          logs.push({ step: steps.length + 1, type: 'GOAL', text: `목적지 ${endId} 최단 거리 ${curD.toFixed(1)} 최종 확정!` });
+          pushStep('GOAL_REACHED', 12, `목적지 ${endId} 도달! 최적 최단 경로 비용 D[${endId}] = ${curD.toFixed(1)}`, u, null, null);
+          break;
+        }
+        for (const e of adj[u]) {
+          relaxChecks++;
+          const cand = Math.round((curD + e.weight) * 100) / 100;
+          const oldStr = dist[e.target] === Infinity ? '∞' : dist[e.target].toFixed(1);
+          if (cand < dist[e.target]) {
+            dist[e.target] = cand; prev[e.target] = u; pq.push({ dist: cand, node: e.target }); pqSort();
+            relaxUpdates++; heapPushes++;
+            const msg = `완화 성공: ${u}→${e.target} (w=${e.weight}) | D[${e.target}]: ${oldStr} → ${cand.toFixed(1)}`;
+            logs.push({ step: steps.length + 1, type: 'RELAX', text: msg });
+            pushStep('RELAX_SUCCESS', 10, msg, u, e.target, { source: u, target: e.target, weight: e.weight, updated: true });
+          } else {
+            const msg = `완화 유지: ${u}→${e.target} (w=${e.weight}) | ${cand.toFixed(1)} ≥ 기존 D[${e.target}]=${oldStr}`;
+            logs.push({ step: steps.length + 1, type: 'KEEP', text: msg });
+            pushStep('RELAX_SKIP', 9, msg, u, e.target, { source: u, target: e.target, weight: e.weight, updated: false });
+          }
+        }
+      }
+      steps.forEach((s, i) => s.metadata.progress_pct = Math.round(((i + 1) / steps.length) * 1000) / 10);
+      const optimal_path = [];
+      let c = dist[endId] !== Infinity ? endId : null;
+      while (c) { optimal_path.push(c); c = prev[c]; }
+      optimal_path.reverse();
+      const optimal_edges = [];
+      let km = 0;
+      for (let i = 0; i < optimal_path.length - 1; i++) {
+        const oe = edgeLookup[`${optimal_path[i]}->${optimal_path[i + 1]}`];
+        if (oe) { optimal_edges.push(oe); km += oe.distance_km; }
+      }
+      const adjacency_matrix = nodeIds.map(r => ({ node: r, values: nodeIds.map(cId => r === cId ? 0 : (edgeLookup[`${r}->${cId}`]?.weight ?? null)) }));
+      return {
+        status: 'success', engineSource: 'Browser Local Engine', start: startId, end: endId, traffic_multiplier: mult,
+        nodes, edges: effectiveEdges, optimal_path, optimal_edges, adjacency_matrix, relaxation_logs: logs,
+        summary: { found: optimal_path[0] === startId, node_count: V, edge_count: E, total_steps: steps.length, settled_count: settled.length, settled_pct: Math.round((settled.length / V) * 1000) / 10, total_cost: dist[endId] === Infinity ? null : Math.round(dist[endId] * 10) / 10, total_distance_km: Math.round(km * 10) / 10, est_time_min: Math.round((km / 36) * 60 * (0.85 + 0.3 * mult) * 10) / 10, extract_count: extractCount, relax_checks: relaxChecks, relax_updates: relaxUpdates, total_operations: extractCount + relaxChecks + relaxUpdates + heapPushes, peak_heap_size: peakHeap, execution_time_ms: Math.round((performance.now() - t0) * 1000) / 1000, time_complexity: 'O((V + E) log V)', optimality: '최적성 보장 (Optimal)' },
+        steps
+      };
+    }
+
+    // =========================================================================
+    // Backend Invocation
+    // =========================================================================
+    function checkServer() {
+      const badgeText = document.getElementById('server-status-text');
+      const dot = document.getElementById('server-dot');
+      const ping = document.getElementById('server-ping');
+      if (typeof google !== 'undefined' && google.script && google.script.run) {
+        google.script.run
+          .withSuccessHandler(res => {
+            badgeText.textContent = res.message || res.status;
+            const ok = res.status === 'online';
+            dot.className = `relative inline-flex rounded-full h-2 w-2 ${ok ? 'bg-secondary' : 'bg-primary'}`;
+            ping.className = `animate-ping absolute inline-flex h-full w-full rounded-full ${ok ? 'bg-secondary' : 'bg-primary'} opacity-75`;
+            badgeText.className = `font-mono text-[11px] font-medium tracking-tight ${ok ? 'text-secondary' : 'text-primary'}`;
+          })
+          .withFailureHandler(() => { badgeText.textContent = 'GAS Local Engine'; })
+          .checkServerStatus();
+      } else {
+        badgeText.textContent = 'Standalone Browser Mode';
+      }
+    }
+
+    function loadSimulation(opts = {}) {
+      stopPlayback();
+      const preset = opts.preset || document.getElementById('preset-select').value;
+      const mult = parseFloat(document.getElementById('traffic-slider').value);
+      const payload = {
+        preset,
+        start: opts.start || null,
+        end: opts.end || null,
+        traffic_multiplier: mult,
+        node_count: 8
+      };
+
+      const onSuccess = (data) => {
+        simData = data;
+        currentStepIdx = 0;
+        populateNodeSelectors(data);
+        renderAdjacencyMatrix(data);
+        document.getElementById('topo-v').textContent = data.summary.node_count;
+        document.getElementById('topo-e').textContent = data.summary.edge_count;
+        document.getElementById('footer-source').textContent = data.engineSource || 'FastAPI';
+        const scrubber = document.getElementById('step-scrubber');
+        scrubber.max = Math.max(0, data.steps.length - 1);
+        scrubber.value = 0;
+        renderStep(0);
+      };
+
+      if (typeof google !== 'undefined' && google.script && google.script.run) {
+        google.script.run
+          .withSuccessHandler(onSuccess)
+          .withFailureHandler(() => onSuccess(runClientFallback(payload)))
+          .runDijkstraSimulation(payload);
+      } else {
+        onSuccess(runClientFallback(payload));
+      }
+    }
+
+    function populateNodeSelectors(data) {
+      const sSel = document.getElementById('start-select');
+      const eSel = document.getElementById('end-select');
+      sSel.innerHTML = '';
+      eSel.innerHTML = '';
+      data.nodes.forEach(n => {
+        const o1 = document.createElement('option');
+        o1.value = n.id; o1.textContent = `${n.id} (${n.short_label})`;
+        if (n.id === data.start) o1.selected = true;
+        sSel.appendChild(o1);
+
+        const o2 = document.createElement('option');
+        o2.value = n.id; o2.textContent = `${n.id} (${n.short_label})`;
+        if (n.id === data.end) o2.selected = true;
+        eSel.appendChild(o2);
+      });
+    }
+
+    // =========================================================================
+    // Render Step Snapshot
+    // =========================================================================
+    function renderStep(idx) {
+      if (!simData || !simData.steps.length) return;
+      currentStepIdx = Math.max(0, Math.min(idx, simData.steps.length - 1));
+      const step = simData.steps[currentStepIdx];
+      const totalSteps = simData.steps.length;
+      const isFinal = currentStepIdx === totalSteps - 1;
+
+      // Top Banner & Scrubber
+      document.getElementById('banner-message').textContent = step.message;
+      document.getElementById('banner-heap-depth').textContent = step.heap_depth;
+      const pad = n => String(n).padStart(2, '0');
+      document.getElementById('banner-step-badge').textContent = `STEP ${pad(step.step_id)} / ${pad(totalSteps)}`;
+      document.getElementById('panel-step-counter').textContent = `STEP #${pad(step.step_id)} / #${pad(totalSteps)}`;
+      document.getElementById('step-scrubber').value = currentStepIdx;
+      document.getElementById('scrubber-pct').textContent = `${step.metadata.progress_pct}%`;
+
+      // HUD Overlay
+      const nodeMap = Object.fromEntries(simData.nodes.map(n => [n.id, n]));
+      const curNodeObj = step.current_node ? nodeMap[step.current_node] : nodeMap[simData.start];
+      const endNodeObj = nodeMap[simData.end];
+      document.getElementById('hud-title').textContent = isFinal && simData.summary.found
+        ? `최적 경로 확정: ${simData.optimal_path.join(' → ')}`
+        : `${curNodeObj.id} (${curNodeObj.label}) 탐색 중`;
+      document.getElementById('hud-subtitle').textContent = step.message;
+      document.getElementById('hud-distance').textContent = simData.summary.total_distance_km.toFixed(1);
+      const mins = Math.floor(simData.summary.est_time_min);
+      const secs = Math.round((simData.summary.est_time_min - mins) * 60);
+      document.getElementById('hud-eta').textContent = `${mins}분 ${secs}초`;
+      const curCost = step.current_node && step.distances[step.current_node] !== null ? step.distances[step.current_node] : 0;
+      document.getElementById('hud-cost').textContent = `D[${step.current_node || simData.start}]=${curCost.toFixed(1)}`;
+
+      const mult = simData.traffic_multiplier;
+      const tb = document.getElementById('hud-traffic-badge');
+      tb.textContent = mult >= 1.75 ? '혼잡 정체' : mult >= 1.25 ? '서행 주의' : '정상 소통';
+      tb.className = `font-mono text-[10px] px-1.5 py-0.5 rounded ${mult >= 1.75 ? 'bg-error-container text-error' : 'bg-surface-container-highest text-primary'}`;
+
+      // Render Visual Components
+      renderGisMap(step, isFinal);
+      renderAbstractGraph(step, isFinal);
+      renderMinHeap(step);
+      renderHistograms(step);
+      renderStateTable(step);
+      renderLogs(step);
+      renderPseudocode(step);
+      renderSummaryCards(step, isFinal);
+    }
+
+    // =========================================================================
+    // 1. GIS Road Map SVG
+    // =========================================================================
+    function renderGisMap(step, isFinal) {
+      const svg = document.getElementById('gis-svg');
+      const showWeights = document.getElementById('toggle-weights').checked;
+      const showCongestion = document.getElementById('toggle-congestion').checked;
+      const showWavefront = document.getElementById('toggle-wavefront').checked;
+
+      const nodeMap = Object.fromEntries(simData.nodes.map(n => [n.id, n]));
+      const settledSet = new Set(step.settled);
+      const queuedSet = new Set(step.queued);
+      const optEdgeSet = new Set();
+      if (isFinal) {
+        for (let i = 0; i < simData.optimal_path.length - 1; i++) {
+          optEdgeSet.add(`${simData.optimal_path[i]}->${simData.optimal_path[i + 1]}`);
+        }
+      }
+
+      let html = `<defs>
+        <linearGradient id="optimal-path-glow" x1="0%" y1="0%" x2="100%" y2="100%">
+          <stop offset="0%" stop-color="#4edea3" />
+          <stop offset="50%" stop-color="#93ccff" />
+          <stop offset="100%" stop-color="#8083ff" />
+        </linearGradient>
+        <filter id="neon-glow" x="-20%" y="-20%" width="140%" height="140%">
+          <feGaussianBlur stdDeviation="5" result="blur" />
+          <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
+        </filter>
+        <radialGradient id="wavefront-grad" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stop-color="#93ccff" stop-opacity="0.22" />
+          <stop offset="70%" stop-color="#3198dc" stop-opacity="0.07" />
+          <stop offset="100%" stop-color="#3198dc" stop-opacity="0" />
+        </radialGradient>
+      </defs>`;
+
+      // Wavefront Overlay
+      if (showWavefront && step.current_node && nodeMap[step.current_node]) {
+        const cn = nodeMap[step.current_node];
+        const radius = 90 + step.settled.length * 24;
+        html += `<circle cx="${cn.map_x}" cy="${cn.map_y}" r="${radius}" fill="url(#wavefront-grad)" stroke="#93ccff" stroke-dasharray="4 6" stroke-width="1" opacity="0.65" />`;
+      }
+
+      // Base Road Arteries & Overlays
+      simData.edges.forEach(e => {
+        const u = nodeMap[e.source], v = nodeMap[e.target];
+        if (!u || !v) return;
+        const key = `${e.source}->${e.target}`;
+        const isActive = step.active_edge && step.active_edge.source === e.source && step.active_edge.target === e.target;
+        const isOpt = optEdgeSet.has(key);
+        const isRelaxedTree = step.prev[e.target] === e.source;
+
+        // Base dark road
+        html += `<line x1="${u.map_x}" y1="${u.map_y}" x2="${v.map_x}" y2="${v.map_y}" stroke="#171f33" stroke-width="9" stroke-linecap="round" />`;
+
+        // Congestion heatmap overlay
+        if (showCongestion && e.congestion >= 0.6) {
+          html += `<line x1="${u.map_x}" y1="${u.map_y}" x2="${v.map_x}" y2="${v.map_y}" stroke="#ffb4ab" stroke-width="3.5" stroke-dasharray="6 4" stroke-opacity="0.7" />`;
+        }
+
+        // Candidate / Shortest Path Tree edges
+        if (isRelaxedTree && !isOpt) {
+          html += `<line x1="${u.map_x}" y1="${u.map_y}" x2="${v.map_x}" y2="${v.map_y}" stroke="#8083ff" stroke-width="3.5" stroke-opacity="0.85" stroke-linecap="round" />`;
+        }
+
+        // Active relaxing edge
+        if (isActive) {
+          const strokeCol = step.active_edge.updated ? '#4edea3' : '#ffb4ab';
+          html += `<line x1="${u.map_x}" y1="${u.map_y}" x2="${v.map_x}" y2="${v.map_y}" stroke="${strokeCol}" stroke-width="5" stroke-dasharray="8 6" class="animate-dash-flow" stroke-linecap="round" />`;
+        }
+      });
+
+      // Final Optimal Path Neon Glow
+      if (isFinal && simData.optimal_path.length > 1) {
+        const pts = simData.optimal_path.map(id => `${nodeMap[id].map_x},${nodeMap[id].map_y}`).join(' ');
+        html += `<polyline points="${pts}" fill="none" stroke="url(#optimal-path-glow)" stroke-width="6.5" stroke-linecap="round" stroke-linejoin="round" filter="url(#neon-glow)" />`;
+        html += `<polyline points="${pts}" fill="none" stroke="#ffffff" stroke-width="2" stroke-dasharray="10 18" class="animate-dash-flow" stroke-linecap="round" opacity="0.9" />`;
+      }
+
+      // Edge Weight Badges
+      if (showWeights) {
+        simData.edges.forEach(e => {
+          const u = nodeMap[e.source], v = nodeMap[e.target];
+          if (!u || !v) return;
+          const mx = (u.map_x + v.map_x) / 2;
+          const my = (u.map_y + v.map_y) / 2;
+          const isOpt = optEdgeSet.has(`${e.source}->${e.target}`);
+          const textColor = isOpt ? '#4edea3' : (e.congestion >= 0.6 ? '#ffb4ab' : '#93ccff');
+          html += `<g transform="translate(${mx - 19}, ${my - 8})">
+            <rect width="38" height="16" rx="3" fill="#060e20" fill-opacity="0.9" stroke="#222a3d" stroke-width="1" />
+            <text x="19" y="11" text-anchor="middle" fill="${textColor}" font-family="JetBrains Mono, monospace" font-size="9.5" font-weight="600">w:${e.weight}</text>
+          </g>`;
+        });
+      }
+
+      // Intersection Nodes
+      simData.nodes.forEach(n => {
+        const isStart = n.id === simData.start;
+        const isEnd = n.id === simData.end;
+        const isCurrent = n.id === step.current_node;
+        const isSettled = settledSet.has(n.id);
+        const isQueued = queuedSet.has(n.id);
+        const dVal = step.distances[n.id];
+        const dStr = dVal === null ? '∞' : dVal.toFixed(1);
+
+        let fill = '#131b2e', stroke = '#3f4850', r = 12, labelColor = '#bfc7d2';
+        if (isCurrent) { fill = '#002c47'; stroke = '#93ccff'; r = 17; labelColor = '#93ccff'; }
+        else if (isSettled) { fill = '#003824'; stroke = '#4edea3'; r = 14; labelColor = '#4edea3'; }
+        else if (isQueued) { fill = '#171f33'; stroke = '#8083ff'; r = 13; labelColor = '#c0c1ff'; }
+        if (isEnd && !isCurrent && !isSettled) { stroke = '#c0c1ff'; r = 16; }
+
+        html += `<g transform="translate(${n.map_x}, ${n.map_y})">`;
+        if (isCurrent) {
+          html += `<circle r="24" fill="none" stroke="#93ccff" stroke-width="1.5" stroke-dasharray="4 3" opacity="0.8">
+            <animate attributeName="r" values="17;30" dur="1.6s" repeatCount="indefinite" />
+            <animate attributeName="opacity" values="0.8;0" dur="1.6s" repeatCount="indefinite" />
+          </circle>`;
+        }
+        html += `<circle r="${r}" fill="${fill}" stroke="${stroke}" stroke-width="2.5" />`;
+        html += `<text y="3.5" text-anchor="middle" fill="${labelColor}" font-family="JetBrains Mono, monospace" font-size="10" font-weight="700">${n.id}</text>`;
+        const tag = isStart ? ' [출발]' : (isEnd ? ' [목적지]' : '');
+        html += `<text y="${-r - 6}" text-anchor="middle" fill="${labelColor}" font-family="Inter, sans-serif" font-size="10" font-weight="600">${n.short_label}${tag}</text>`;
+        html += `<text y="${r + 13}" text-anchor="middle" fill="#93ccff" font-family="JetBrains Mono, monospace" font-size="9.5">d:${dStr}</text>`;
+        html += `</g>`;
+      });
+
+      // GPS Moving Vehicle Indicator
+      if (step.current_node && nodeMap[step.current_node]) {
+        const cn = nodeMap[step.current_node];
+        let vx = cn.map_x, vy = cn.map_y - 26;
+        if (step.active_edge && nodeMap[step.active_edge.target]) {
+          const tn = nodeMap[step.active_edge.target];
+          vx = (cn.map_x + tn.map_x) / 2;
+          vy = (cn.map_y + tn.map_y) / 2 - 18;
+        }
+        html += `<g transform="translate(${vx}, ${vy})">
+          <rect x="-34" y="-12" width="68" height="17" rx="3" fill="#060e20" stroke="#93ccff" stroke-width="1" opacity="0.95" />
+          <text x="0" y="0" text-anchor="middle" fill="#93ccff" font-family="JetBrains Mono, monospace" font-size="9" font-weight="600">GPS ACTIVE</text>
+        </g>`;
+      }
+
+      svg.innerHTML = html;
+    }
+
+    // =========================================================================
+    // 2. Abstract Mathematical Graph SVG
+    // =========================================================================
+    function renderAbstractGraph(step, isFinal) {
+      const svg = document.getElementById('abstract-svg');
+      const nodeMap = Object.fromEntries(simData.nodes.map(n => [n.id, n]));
+      const settledSet = new Set(step.settled);
+      const queuedSet = new Set(step.queued);
+      const optEdgeSet = new Set();
+      if (isFinal) {
+        for (let i = 0; i < simData.optimal_path.length - 1; i++) {
+          optEdgeSet.add(`${simData.optimal_path[i]}->${simData.optimal_path[i + 1]}`);
+        }
+      }
+
+      let html = `<defs>
+        <marker id="arr-def" viewBox="0 0 10 10" refX="20" refY="5" markerWidth="5.5" markerHeight="5.5" orient="auto-start-reverse"><path d="M 0 1 L 9 5 L 0 9 z" fill="#89929b" /></marker>
+        <marker id="arr-act" viewBox="0 0 10 10" refX="20" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 1 L 9 5 L 0 9 z" fill="#93ccff" /></marker>
+        <marker id="arr-opt" viewBox="0 0 10 10" refX="20" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 1 L 9 5 L 0 9 z" fill="#4edea3" /></marker>
+      </defs>`;
+
+      simData.edges.forEach(e => {
+        const u = nodeMap[e.source], v = nodeMap[e.target];
+        if (!u || !v) return;
+        const key = `${e.source}->${e.target}`;
+        const isActive = step.active_edge && step.active_edge.source === e.source && step.active_edge.target === e.target;
+        const isOpt = optEdgeSet.has(key);
+        const isTree = step.prev[e.target] === e.source;
+
+        let stroke = '#3f4850', sw = 1.5, marker = 'url(#arr-def)', dash = '';
+        if (isOpt) { stroke = '#4edea3'; sw = 2.8; marker = 'url(#arr-opt)'; }
+        else if (isActive) { stroke = '#93ccff'; sw = 2.8; marker = 'url(#arr-act)'; dash = '4 2'; }
+        else if (isTree) { stroke = '#8083ff'; sw = 2.0; }
+
+        html += `<line x1="${u.graph_x}" y1="${u.graph_y}" x2="${v.graph_x}" y2="${v.graph_y}" stroke="${stroke}" stroke-width="${sw}" ${dash ? `stroke-dasharray="${dash}"` : ''} marker-end="${marker}" />`;
+        const mx = (u.graph_x + v.graph_x) / 2;
+        const my = (u.graph_y + v.graph_y) / 2 - 4;
+        html += `<text x="${mx}" y="${my}" text-anchor="middle" fill="${isOpt ? '#4edea3' : (isActive ? '#93ccff' : '#bfc7d2')}" font-family="JetBrains Mono, monospace" font-size="9">${e.weight}</text>`;
+      });
+
+      simData.nodes.forEach(n => {
+        const isCur = n.id === step.current_node;
+        const isSet = settledSet.has(n.id);
+        const isQ = queuedSet.has(n.id);
+        const dVal = step.distances[n.id];
+        let fill = '#0b1326', stroke = '#3f4850', txt = '#89929b', r = 13;
+        if (isCur) { fill = '#002c47'; stroke = '#93ccff'; txt = '#93ccff'; r = 16; }
+        else if (isSet) { fill = '#003824'; stroke = '#4edea3'; txt = '#4edea3'; r = 14; }
+        else if (isQ) { fill = '#171f33'; stroke = '#8083ff'; txt = '#c0c1ff'; r = 14; }
+
+        html += `<circle cx="${n.graph_x}" cy="${n.graph_y}" r="${r}" fill="${fill}" stroke="${stroke}" stroke-width="2" />`;
+        html += `<text x="${n.graph_x}" y="${n.graph_y + 3.5}" text-anchor="middle" fill="${txt}" font-family="JetBrains Mono, monospace" font-size="9.5" font-weight="700">${n.id}</text>`;
+        html += `<text x="${n.graph_x}" y="${n.graph_y + r + 10}" text-anchor="middle" fill="${txt}" font-family="JetBrains Mono, monospace" font-size="8.5">${dVal === null ? '∞' : dVal.toFixed(1)}</text>`;
+      });
+
+      svg.innerHTML = html;
+    }
+
+    // =========================================================================
+    // 3. Min-Heap Queue Widget
+    // =========================================================================
+    function renderMinHeap(step) {
+      const grid = document.getElementById('heap-grid');
+      const badge = document.getElementById('heap-len-badge');
+      badge.textContent = `len: ${step.pq.length} items`;
+
+      if (!step.pq.length) {
+        grid.innerHTML = `<div class="col-span-4 text-center py-3 font-mono text-[11px] text-outline">Min-Heap 비어 있음 (탐색 종료)</div>`;
+        return;
+      }
+
+      grid.innerHTML = step.pq.slice(0, 8).map((item, i) => {
+        const isRoot = i === 0;
+        const staleCls = item.is_stale ? 'opacity-45 line-through' : '';
+        return `<div class="flex flex-col p-2 rounded ${isRoot ? 'bg-surface-container-highest border-l-2 border-primary' : 'bg-surface-container-low border border-outline-variant/30'} ${staleCls}">
+          <span class="text-[9.5px] font-bold ${isRoot ? 'text-primary' : 'text-outline'}">${isRoot ? 'HEAP-MIN [0]' : `Idx [${item.index}]`}</span>
+          <span class="font-mono text-[12px] font-semibold ${isRoot ? 'text-on-surface' : 'text-tertiary'} mt-0.5">(${item.dist.toFixed(1)}, ${item.node})</span>
+          <span class="text-[9.5px] text-outline">${item.is_stale ? 'Stale' : (isRoot ? 'Next Extract' : `Parent: [${item.parent_idx}]`)}</span>
+        </div>`;
+      }).join('');
+    }
+
+    // =========================================================================
+    // 4. Step Histogram (Distance Distribution + Operations)
+    // =========================================================================
+    function renderHistograms(step) {
+      const hist = step.histogram;
+      const sc = hist.state_counts;
+      document.getElementById('hist-state-summary').textContent = `Settled ${sc.settled} · Queued ${sc.queued} · Unvisited ${sc.unvisited}`;
+
+      const distBox = document.getElementById('distance-histogram');
+      distBox.innerHTML = hist.distance_bars.map(b => {
+        const hPct = b.is_inf ? 8 : Math.max(14, Math.round(b.ratio * 100));
+        let barCol = 'bg-surface-variant';
+        if (b.state === 'EXTRACTING') barCol = 'bg-primary';
+        else if (b.state === 'SETTLED') barCol = 'bg-secondary';
+        else if (b.state === 'QUEUED') barCol = 'bg-tertiary-container';
+        const valStr = b.is_inf ? '∞' : b.distance.toFixed(1);
+        return `<div class="flex-1 flex flex-col items-center justify-end h-full gap-1 min-w-0">
+          <span class="font-mono text-[9px] text-on-surface-variant tnum">${valStr}</span>
+          <div class="w-full max-w-[28px] rounded-t transition-all duration-300 ${barCol}" style="height: ${hPct}%;"></div>
+          <span class="font-mono text-[9.5px] text-outline pb-1">${b.node}</span>
+        </div>`;
+      }).join('');
+
+      const ops = hist.ops_bars;
+      document.getElementById('ops-histogram').innerHTML = `
+        <div class="bg-surface-container-lowest p-1.5 rounded border border-outline-variant/20 text-center">
+          <div class="text-outline text-[9px]">EXTRACT</div>
+          <div class="text-primary font-bold text-[12px]">${ops.extract_min}</div>
+        </div>
+        <div class="bg-surface-container-lowest p-1.5 rounded border border-outline-variant/20 text-center">
+          <div class="text-outline text-[9px]">CHECKS</div>
+          <div class="text-on-surface font-bold text-[12px]">${ops.relax_checks}</div>
+        </div>
+        <div class="bg-surface-container-lowest p-1.5 rounded border border-outline-variant/20 text-center">
+          <div class="text-outline text-[9px]">RELAXED</div>
+          <div class="text-secondary font-bold text-[12px]">${ops.relax_updates}</div>
+        </div>
+        <div class="bg-surface-container-lowest p-1.5 rounded border border-outline-variant/20 text-center">
+          <div class="text-outline text-[9px]">PUSHES</div>
+          <div class="text-tertiary font-bold text-[12px]">${ops.heap_pushes}</div>
+        </div>
+      `;
+    }
+
+    // =========================================================================
+    // 5. Dijkstra State Table
+    // =========================================================================
+    function renderStateTable(step) {
+      const tbody = document.getElementById('state-table-body');
+      tbody.innerHTML = step.histogram.distance_bars.map(b => {
+        const isAct = b.state === 'EXTRACTING';
+        const rowCls = isAct ? 'bg-surface-container-high text-on-surface font-semibold' : 'bg-surface-container-lowest hover:bg-surface-container-low';
+        let badge = `<span class="px-1.5 py-0.5 rounded bg-surface-container text-outline text-[10px]">UNVISITED</span>`;
+        let actionTxt = '미도달 정점';
+        if (b.state === 'EXTRACTING') {
+          badge = `<span class="px-1.5 py-0.5 rounded bg-primary-container text-on-primary-container text-[10px] animate-pulse">EXTRACTING</span>`;
+          actionTxt = step.message;
+        } else if (b.state === 'SETTLED') {
+          badge = `<span class="px-1.5 py-0.5 rounded bg-secondary-container text-on-secondary-container text-[10px]">SETTLED</span>`;
+          actionTxt = '최단 거리 확정됨';
+        } else if (b.state === 'QUEUED') {
+          badge = `<span class="px-1.5 py-0.5 rounded bg-surface-container-highest text-tertiary text-[10px]">QUEUED</span>`;
+          actionTxt = 'Min-Heap 대기열 등록';
+        }
+        return `<tr class="${rowCls} transition-colors">
+          <td class="py-1.5 px-3 font-bold ${b.state === 'SETTLED' ? 'text-secondary' : (isAct ? 'text-primary' : (b.state === 'QUEUED' ? 'text-tertiary' : 'text-outline'))}">${b.node} (${b.label})</td>
+          <td class="py-1.5 px-3 text-on-surface">${b.is_inf ? '∞ (무한)' : b.distance.toFixed(1)}</td>
+          <td class="py-1.5 px-3 text-on-surface-variant">${b.prev || (b.node === simData.start ? 'null (시작점)' : 'null')}</td>
+          <td class="py-1.5 px-3">${badge}</td>
+          <td class="py-1.5 px-3 text-on-surface-variant truncate max-w-[240px]">${actionTxt}</td>
+        </tr>`;
+      }).join('');
+    }
+
+    // =========================================================================
+    // 6. Relaxation Logs & Adjacency Matrix
+    // =========================================================================
+    function renderLogs(step) {
+      const box = document.getElementById('tab-logs');
+      const visible = simData.relaxation_logs.filter(l => l.step <= step.step_id);
+      if (!visible.length) {
+        box.innerHTML = `<div class="text-outline">아직 완화 연산 로그가 없습니다. 다음 스텝을 진행해 보세요.</div>`;
+        return;
+      }
+      box.innerHTML = visible.map(l => {
+        const col = l.type === 'GOAL' ? 'text-secondary font-bold' : (l.type === 'RELAX' ? 'text-primary' : 'text-outline');
+        return `<div class="flex items-start gap-2 border-b border-surface-container pb-1">
+          <span class="text-outline shrink-0">[#${String(l.step).padStart(2, '0')}]</span>
+          <span class="${col}">${l.text}</span>
+        </div>`;
+      }).join('');
+      box.scrollTop = box.scrollHeight;
+    }
+
+    function renderAdjacencyMatrix(data) {
+      const tbl = document.getElementById('adj-matrix-table');
+      const ids = data.nodes.map(n => n.id);
+      let html = `<thead><tr class="bg-surface-container text-on-surface-variant"><th class="p-1.5 border border-outline-variant/30">From\\To</th>`;
+      ids.forEach(id => { html += `<th class="p-1.5 border border-outline-variant/30 text-primary">${id}</th>`; });
+      html += `</tr></thead><tbody>`;
+      data.adjacency_matrix.forEach(row => {
+        html += `<tr><td class="p-1.5 border border-outline-variant/30 font-bold text-secondary bg-surface-container/60">${row.node}</td>`;
+        row.values.forEach(v => {
+          const cell = v === 0 ? '<span class="text-outline">0</span>' : (v === null ? '<span class="text-outline/40">∞</span>' : `<span class="text-on-surface font-semibold">${v}</span>`);
+          html += `<td class="p-1.5 border border-outline-variant/20">${cell}</td>`;
+        });
+        html += `</tr>`;
+      });
+      html += `</tbody>`;
+      tbl.innerHTML = html;
+    }
+
+    // =========================================================================
+    // 7. Python Execution Tracer
+    // =========================================================================
+    function renderPseudocode(step) {
+      document.getElementById('tracer-active-line').textContent = `Active Line: ${String(step.active_line).padStart(2, '0')}`;
+      const box = document.getElementById('pseudocode-box');
+      box.innerHTML = PSEUDOCODE.map(line => {
+        const isAct = line.no === step.active_line;
+        const noStr = String(line.no).padStart(2, '0');
+        if (isAct) {
+          return `<div class="px-2 py-1 rounded bg-primary/20 border-l-2 border-primary text-on-surface font-semibold flex items-center justify-between">
+            <span><span class="text-primary mr-2">${noStr}</span>${line.html}</span>
+            <span class="text-[9.5px] text-primary uppercase bg-primary-container/40 px-1.5 py-0.5 rounded">EXEC</span>
+          </div>`;
+        }
+        return `<div class="px-2 py-0.5 rounded text-outline-variant"><span class="text-outline mr-2">${noStr}</span>${line.html}</div>`;
+      }).join('');
+    }
+
+    // =========================================================================
+    // 8. Bottom Metadata Summary Cards
+    // =========================================================================
+    function renderSummaryCards(step, isFinal) {
+      const m = step.metadata;
+      const sum = simData.summary;
+      document.getElementById('card-ops').textContent = m.time_complexity.cumulative_operations;
+      document.getElementById('card-savings').textContent = `${m.time_complexity.savings_pct}% 연산 절감`;
+      document.getElementById('card-elapsed').textContent = m.elapsed_ms.toFixed(2);
+      document.getElementById('card-step-time').textContent = `총 ${sum.total_steps} 스텝 중 #${step.step_id}`;
+      document.getElementById('card-settled-ratio').textContent = `${step.settled.length} / ${sum.node_count}`;
+      document.getElementById('card-settled-pct').textContent = `(${m.settled_pct.toFixed(1)}%)`;
+      document.getElementById('card-settled-bar').style.width = `${m.settled_pct}%`;
+
+      const endDist = step.distances[simData.end];
+      document.getElementById('card-total-cost').textContent = endDist !== null ? endDist.toFixed(1) : (isFinal && sum.total_cost !== null ? sum.total_cost.toFixed(1) : '∞');
+      document.getElementById('card-total-km').textContent = `${sum.total_distance_km.toFixed(1)} km`;
+      document.getElementById('footer-mem').textContent = `${m.space_complexity.est_memory_kb} KB`;
+    }
+
+    // =========================================================================
+    // Playback Controls & Event Bindings
+    // =========================================================================
+    function startPlayback() {
+      if (!simData) return;
+      if (currentStepIdx >= simData.steps.length - 1) currentStepIdx = 0;
+      stopPlayback();
+      playTimer = setInterval(() => {
+        if (currentStepIdx < simData.steps.length - 1) {
+          renderStep(currentStepIdx + 1);
+        } else {
+          stopPlayback();
+        }
+      }, playSpeedMs);
+    }
+
+    function stopPlayback() {
+      if (playTimer) { clearInterval(playTimer); playTimer = null; }
+    }
+
+    document.getElementById('btn-play').addEventListener('click', startPlayback);
+    document.getElementById('btn-pause').addEventListener('click', stopPlayback);
+    document.getElementById('btn-prev').addEventListener('click', () => { stopPlayback(); renderStep(currentStepIdx - 1); });
+    document.getElementById('btn-next').addEventListener('click', () => { stopPlayback(); renderStep(currentStepIdx + 1); });
+    document.getElementById('btn-reset').addEventListener('click', () => { stopPlayback(); renderStep(0); });
+
+    document.getElementById('step-scrubber').addEventListener('input', (e) => {
+      stopPlayback();
+      renderStep(parseInt(e.target.value, 10));
+    });
+
+    document.getElementById('speed-slider').addEventListener('input', (e) => {
+      playSpeedMs = parseInt(e.target.value, 10);
+      document.getElementById('speed-label').textContent = `${playSpeedMs}ms`;
+      if (playTimer) startPlayback();
+    });
+
+    document.getElementById('traffic-slider').addEventListener('input', (e) => {
+      const v = parseFloat(e.target.value);
+      const tag = v >= 1.75 ? '혼잡' : (v >= 1.25 ? '서행' : (v < 1.0 ? '원활' : '정상'));
+      document.getElementById('traffic-label').textContent = `${v.toFixed(2)}x (${tag})`;
+    });
+
+    document.getElementById('preset-select').addEventListener('change', () => {
+      loadSimulation({ preset: document.getElementById('preset-select').value });
+    });
+
+    document.getElementById('btn-recompute').addEventListener('click', () => {
+      loadSimulation({
+        preset: document.getElementById('preset-select').value,
+        start: document.getElementById('start-select').value,
+        end: document.getElementById('end-select').value
+      });
+    });
+
+    ['toggle-weights', 'toggle-congestion', 'toggle-wavefront'].forEach(id => {
+      document.getElementById(id).addEventListener('change', () => renderStep(currentStepIdx));
+    });
+
+    // Right Panel Tabs
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const target = btn.dataset.tab;
+        document.querySelectorAll('.tab-btn').forEach(b => {
+          b.className = 'tab-btn px-3 py-1.5 rounded hover:bg-surface-container-high text-on-surface-variant text-[12px] font-medium flex items-center gap-1.5 transition-colors';
+        });
+        btn.className = 'tab-btn px-3 py-1.5 rounded bg-surface-container-high text-primary text-[12px] font-medium flex items-center gap-1.5';
+        document.querySelectorAll('.tab-panel').forEach(p => p.classList.add('hidden'));
+        document.getElementById(`tab-${target}`).classList.remove('hidden');
+      });
+    });
+
+    // Sidebar Navigation
+    document.querySelectorAll('.nav-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.nav-btn').forEach(b => {
+          b.className = 'nav-btn flex items-center gap-3 px-3 py-2 rounded text-left text-[12px] font-medium text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-colors';
+        });
+        btn.className = 'nav-btn flex items-center gap-3 px-3 py-2 rounded text-left text-[12px] font-medium bg-surface-container-high text-primary transition-colors';
+        const v = btn.dataset.view;
+        if (v === 'matrix') {
+          document.querySelector('.tab-btn[data-tab="matrix"]').click();
+          document.getElementById('tab-matrix').scrollIntoView({ behavior: 'smooth', block: 'center' });
+        } else {
+          const sec = document.getElementById(`section-${v}`);
+          if (sec) sec.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      });
+    });
+
+    // Boot
+    window.addEventListener('DOMContentLoaded', () => {
+      checkServer();
+      loadSimulation({ preset: 'centum_ai_hub' });
+    });
+  </script>
+</body>
+</html>
