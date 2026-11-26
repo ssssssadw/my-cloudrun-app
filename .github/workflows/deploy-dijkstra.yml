@@ -1,0 +1,115 @@
+name: Deploy Dijkstra to Cloud Run
+
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - 'Dijkstra/**'
+      - '.github/workflows/deploy-dijkstra.yml'
+  workflow_dispatch:
+
+env:
+  PROJECT_ID: algorithm-510300
+  REGION: us-central1
+  SERVICE_NAME: algo-dijkstra-nav
+  IMAGE: us-central1-docker.pkg.dev/algorithm-510300/algo-maze/dijkstra-server
+  WORKLOAD_IDENTITY_PROVIDER: projects/738041630723/locations/global/workloadIdentityPools/github-pool/providers/github-provider
+  SERVICE_ACCOUNT: github-actions-deploy@algorithm-510300.iam.gserviceaccount.com
+
+jobs:
+  deploy:
+    name: Build & Deploy Dijkstra to Cloud Run
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write   # Workload Identity Federation에 필수
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud (WIF)
+        id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ env.WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ env.SERVICE_ACCOUNT }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ env.PROJECT_ID }}
+
+      - name: Ensure Artifact Registry repository exists
+        run: |
+          gcloud artifacts repositories create algo-maze \
+            --repository-format=docker \
+            --location=${{ env.REGION }} \
+            --description="ALGO-MAZE Docker images" \
+            --project=${{ env.PROJECT_ID }} 2>/dev/null || echo "Repository already exists."
+
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev --quiet
+
+      - name: Build and push Docker image
+        run: |
+          docker build \
+            -t ${{ env.IMAGE }}:${{ github.sha }} \
+            -t ${{ env.IMAGE }}:latest \
+            ./Dijkstra
+          docker push ${{ env.IMAGE }}:${{ github.sha }}
+          docker push ${{ env.IMAGE }}:latest
+
+      - name: Deploy to Cloud Run
+        id: deploy
+        uses: google-github-actions/deploy-cloudrun@v2
+        with:
+          service: ${{ env.SERVICE_NAME }}
+          region: ${{ env.REGION }}
+          image: ${{ env.IMAGE }}:${{ github.sha }}
+          flags: |
+            --allow-unauthenticated
+            --memory=512Mi
+            --cpu=1
+            --min-instances=0
+            --max-instances=5
+            --timeout=60s
+            --port=8080
+          env_vars: |
+            GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}
+            GCP_PROJECT_ID=${{ env.PROJECT_ID }}
+            ENVIRONMENT=production
+
+      - name: Show deployed URL
+        run: echo "Service URL = ${{ steps.deploy.outputs.url }}"
+
+      - name: Smoke test - health check
+        run: |
+          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 30 "${{ steps.deploy.outputs.url }}/health")
+          echo "HTTP Status: $HTTP_CODE"
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "Health check FAILED (HTTP $HTTP_CODE)"
+            exit 1
+          fi
+          echo "Health check PASSED"
+
+      - name: Register URL to GAS Properties
+        if: success()
+        run: |
+          SERVICE_URL="${{ steps.deploy.outputs.url }}"
+          echo "Syncing Cloud Run URL to Dijkstra GAS: $SERVICE_URL"
+          curl -X POST -L \
+            -H "Content-Type: application/json" \
+            -d "{\"serviceName\": \"${{ env.SERVICE_NAME }}\", \"serviceUrl\": \"$SERVICE_URL\"}" \
+            "${{ secrets.DIJKSTRA_GAS_WEBHOOK_URL }}" || echo "GAS sync webhook call completed"
+
+      - name: Write job summary
+        if: always()
+        run: |
+          echo "## DijkstraNav Deploy Summary" >> $GITHUB_STEP_SUMMARY
+          echo "| Item | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Service | ${{ env.SERVICE_NAME }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Region | ${{ env.REGION }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| URL | ${{ steps.deploy.outputs.url }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Commit | ${{ github.sha }} |" >> $GITHUB_STEP_SUMMARY
